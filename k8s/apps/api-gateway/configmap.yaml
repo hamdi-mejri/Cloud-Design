@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-gateway-config
+  namespace: apps
+data:
+  PORT: "3000"
+  INVENTORY_URL: "http://inventory.apps.svc.cluster.local:8080"
+  BILLING_URL: "http://billing.apps.svc.cluster.local:8080"

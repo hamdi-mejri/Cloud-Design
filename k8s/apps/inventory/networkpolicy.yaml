@@ -1,0 +1,18 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: inventory-allow-from-same-ns-and-gateway
+  namespace: apps
+spec:
+  podSelector:
+    matchLabels:
+      app: inventory
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        # Même namespace (ex: api-gateway, billing)
+        - podSelector: {}
+      ports:
+        - protocol: TCP
+          port: 8080

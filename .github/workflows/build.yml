@@ -1,0 +1,83 @@
+name: build-and-push-ecr
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'services/**'
+      - '.github/workflows/build.yml'
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+
+jobs:
+  build:
+    name: Build and push (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: inventory-app
+            repo: inventory
+            context: services/inventory-app
+            dockerfile: services/inventory-app/Dockerfile
+          - name: billing-app
+            repo: billing
+            context: services/billing-app
+            dockerfile: services/billing-app/Dockerfile
+          - name: api-gateway-app
+            repo: api-gateway
+            context: services/api-gateway-app
+            dockerfile: services/api-gateway-app/Dockerfile
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        run: |
+          aws ecr get-login-password --region "${AWS_REGION}" \
+            | docker login --username AWS --password-stdin "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+
+      - name: Build image
+        run: |
+          set -euo pipefail
+          REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          IMAGE="$REGISTRY/${{ matrix.repo }}:${{ github.sha }}"
+          docker build -f "${{ matrix.dockerfile }}" -t "$IMAGE" "${{ matrix.context }}"
+
+      # Optional: enable Trivy scan by uncommenting the step below
+      # - name: Scan image with Trivy
+      #   uses: aquasecurity/trivy-action@0.24.0
+      #   with:
+      #     image-ref: ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ matrix.repo }}:${{ github.sha }}
+      #     format: 'table'
+      #     severity: 'HIGH,CRITICAL'
+      #     exit-code: '1'
+
+      - name: Push image tag (SHA)
+        run: |
+          REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          IMAGE_SHA="$REGISTRY/${{ matrix.repo }}:${{ github.sha }}"
+          docker push "$IMAGE_SHA"
+
+      - name: Tag and push latest (main only)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          IMAGE_SHA="$REGISTRY/${{ matrix.repo }}:${{ github.sha }}"
+          IMAGE_LATEST="$REGISTRY/${{ matrix.repo }}:latest"
+          docker tag "$IMAGE_SHA" "$IMAGE_LATEST"
+          docker push "$IMAGE_LATEST"

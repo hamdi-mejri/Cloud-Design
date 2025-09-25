@@ -1,0 +1,17 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: api-gateway-allow-same-ns
+  namespace: apps
+spec:
+  podSelector:
+    matchLabels:
+      app: api-gateway
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector: {}   # permet aux autres pods du namespace apps d'appeler le gateway
+      ports:
+        - protocol: TCP
+          port: 3000

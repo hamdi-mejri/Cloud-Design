@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: billing-config
+  namespace: apps
+data:
+  PORT: "8080"
+  QUEUE_NAME: "billing_queue"
+  # Si RabbitMQ tourne en cluster K8s et s'appelle "rabbitmq" (Service), l'URL interne est :
+  RABBITMQ_URL: "amqp://rabbitmq:5672"

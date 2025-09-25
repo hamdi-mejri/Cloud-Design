@@ -1,0 +1,59 @@
+name: deploy-to-eks
+
+on:
+  workflow_dispatch:
+    inputs:
+      imageTag:
+        description: 'Tag des images à déployer (latest ou SHA)'
+        required: false
+        default: 'latest'
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+  EKS_CLUSTER_NAME: ${{ vars.EKS_CLUSTER_NAME }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --region "${AWS_REGION}" --name "${EKS_CLUSTER_NAME}"
+
+      - name: Ensure namespace exists
+        run: kubectl apply -f k8s/apps/inventory/namespace.yaml
+
+      - name: Apply manifests (inventory, billing, api-gateway)
+        run: |
+          kubectl -n apps apply -f k8s/apps/inventory/   || true
+          kubectl -n apps apply -f k8s/apps/billing/     || true
+          kubectl -n apps apply -f k8s/apps/api-gateway/ || true
+
+      - name: Set images from ECR (optional)
+        run: |
+          REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          TAG="${{ github.event.inputs.imageTag }}"
+          kubectl -n apps set image deploy/inventory   app="$REGISTRY/inventory:$TAG"     --record || true
+          kubectl -n apps set image deploy/billing     app="$REGISTRY/billing:$TAG"       --record || true
+          kubectl -n apps set image deploy/api-gateway app="$REGISTRY/api-gateway:$TAG"   --record || true
+
+      - name: Wait for rollout
+        run: |
+          kubectl -n apps rollout status deploy/inventory   || true
+          kubectl -n apps rollout status deploy/billing     || true
+          kubectl -n apps rollout status deploy/api-gateway || true

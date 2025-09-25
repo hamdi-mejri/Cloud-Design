@@ -1,0 +1,17 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: billing-allow-from-same-ns
+  namespace: apps
+spec:
+  podSelector:
+    matchLabels:
+      app: billing
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector: {}   # autorise les pods du même namespace (api-gateway, inventory, etc.)
+      ports:
+        - protocol: TCP
+          port: 8080
