@@ -197,6 +197,54 @@ done
 
 > 🔎 **Erreur rencontrée** : `Metrics API not available` → lire les logs `kubectl logs -n kube-system deploy/metrics-server`, ajouter `nodes/proxy` & `nodes/metrics` dans le ClusterRole, redémarrer le pod.
 
+### Exemples de contrôles (outputs réels)
+
+```bash
+# Pods applicatifs en cours d'exécution
+$ kubectl get pods -n apps
+NAME                            READY   STATUS    RESTARTS   AGE
+api-gateway-7d78569684-2484l    1/1     Running   0          3h
+billing-f48fdb7f5-jflp8         1/1     Running   0          3h
+inventory-6955f4cfb5-mc67s      1/1     Running   0          3h
+
+# Ingress ALB provisionné
+$ kubectl get ingress -n apps
+NAME          CLASS    HOSTS   ADDRESS                                         PORTS   AGE
+api-gateway   alb      *       k8s-pfeapps-76786a850e-1198871974.eu-west-3.elb.amazonaws.com   80      3h
+
+# Vérification API → Inventory (curl interne)
+$ kubectl -n apps exec deploy/api-gateway -- curl -s -o /dev/null -w "%{http_code}" http://inventory.apps.svc.cluster.local:8080/health
+200
+
+# Test connexion PostgreSQL depuis inventory
+$ kubectl -n apps exec deploy/inventory -- env PGPASSWORD=$DB_PASS psql \
+    -h pfe-inventory-db.c7mg8qiweece.eu-west-3.rds.amazonaws.com \
+    -U app_user -d inventory -c 'SELECT now();'
+              now
+-------------------------------
+ 2025-09-27 08:12:13.123456+00
+(1 row)
+
+# RabbitMQ opérationnel
+$ kubectl -n infra exec rabbitmq-0 -- rabbitmq-diagnostics status | head -n 5
+Status of node rabbit@rabbitmq-0.rabbitmq.infra.svc.cluster.local ...
+- data directory set to /var/lib/rabbitmq/mnesia
+- log base directory set to /var/log/rabbitmq
+- kernel ready
+
+# HPA alimenté par metrics-server
+$ kubectl get hpa -n apps
+NAME              REFERENCE                    TARGETS   MINPODS   MAXPODS   REPLICAS   AGE
+api-gateway-hpa   Deployment/api-gateway       10%/70%   1         5         1          3h
+billing-hpa       Deployment/billing           12%/70%   1         5         1          3h
+inventory-hpa     Deployment/inventory         15%/70%   1         5         1          3h
+
+# Grafana port-forward & dashboard
+$ kubectl -n monitoring port-forward svc/monitoring-grafana 3000:80
+Forwarding from 127.0.0.1:3000 -> 3000
+# → Captures d'écran disponibles en annexe
+```
+
 ---
 
 ## 🔄 CI/CD GitHub Actions
