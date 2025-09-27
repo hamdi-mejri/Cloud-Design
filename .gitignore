@@ -1,1 +1,3 @@
 infra/terraform/minikube-linux-amd64
+k8s/apps/*/secret*.yaml
+k8s/apps/*/secret*.env

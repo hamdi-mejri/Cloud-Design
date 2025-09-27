@@ -6,5 +6,4 @@ metadata:
 data:
   PORT: "8080"
   QUEUE_NAME: "billing_queue"
-  # Si RabbitMQ tourne en cluster K8s et s'appelle "rabbitmq" (Service), l'URL interne est :
-  RABBITMQ_URL: "amqp://rabbitmq:5672"
+  RABBITMQ_URL: "amqp://billing:ChangeMe42!@rabbitmq.rabbitmq.svc.cluster.local:5672"

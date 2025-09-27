@@ -18,14 +18,15 @@ spec:
       serviceAccountName: sa-api-gateway
       containers:
         - name: app
-          image: api-gateway:v2
-          #image: 917394547509.dkr.ecr.eu-west-3.amazonaws.com/api-gateway:v1
+          image: 917394547509.dkr.ecr.eu-west-3.amazonaws.com/api-gateway:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000
           envFrom:
             - configMapRef:
                 name: api-gateway-config
+            - secretRef:
+                name: api-gateway-auth
           readinessProbe:
             httpGet:
               path: /health

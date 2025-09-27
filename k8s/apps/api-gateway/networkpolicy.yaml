@@ -12,6 +12,8 @@ spec:
   ingress:
     - from:
         - podSelector: {}   # permet aux autres pods du namespace apps d'appeler le gateway
+        - ipBlock:
+            cidr: 10.0.0.0/16  # autorise le trafic en provenance du LB (sous-réseaux du VPC)
       ports:
         - protocol: TCP
           port: 3000

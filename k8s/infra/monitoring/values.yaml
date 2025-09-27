@@ -1,0 +1,16 @@
+grafana:
+  adminUser: admin
+  adminPassword: ChangeMe42!
+  service:
+    type: ClusterIP
+  persistence:
+    enabled: false
+
+prometheus:
+  prometheusSpec:
+    retention: 7d
+    serviceMonitorSelectorNilUsesHelmValues: false
+
+alertmanager:
+  alertmanagerSpec:
+    storage: {}

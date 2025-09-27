@@ -12,6 +12,18 @@ env:
   AWS_REGION: ${{ vars.AWS_REGION }}
   AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
   EKS_CLUSTER_NAME: ${{ vars.EKS_CLUSTER_NAME }}
+  INVENTORY_DB_HOST: ${{ secrets.INVENTORY_DB_HOST }}
+  INVENTORY_DB_NAME: ${{ secrets.INVENTORY_DB_NAME }}
+  INVENTORY_DB_USER: ${{ secrets.INVENTORY_DB_USER }}
+  INVENTORY_DB_PASSWORD: ${{ secrets.INVENTORY_DB_PASSWORD }}
+  BILLING_DB_HOST: ${{ secrets.BILLING_DB_HOST }}
+  BILLING_DB_NAME: ${{ secrets.BILLING_DB_NAME }}
+  BILLING_DB_USER: ${{ secrets.BILLING_DB_USER }}
+  BILLING_DB_PASSWORD: ${{ secrets.BILLING_DB_PASSWORD }}
+  COGNITO_USER_POOL_ID: ${{ secrets.COGNITO_USER_POOL_ID }}
+  COGNITO_APP_CLIENT_ID: ${{ secrets.COGNITO_APP_CLIENT_ID }}
+  COGNITO_USER_POOL_DOMAIN: ${{ secrets.COGNITO_USER_POOL_DOMAIN }}
+  COGNITO_REGION: ${{ secrets.COGNITO_REGION }}
 
 jobs:
   deploy:
@@ -37,6 +49,29 @@ jobs:
 
       - name: Ensure namespace exists
         run: kubectl apply -f k8s/apps/inventory/namespace.yaml
+
+      - name: Create/update application secrets
+        run: |
+          set -euo pipefail
+          set +H
+          for var in INVENTORY_DB_HOST INVENTORY_DB_NAME INVENTORY_DB_USER INVENTORY_DB_PASSWORD \
+                     BILLING_DB_HOST BILLING_DB_NAME BILLING_DB_USER BILLING_DB_PASSWORD \
+                     COGNITO_USER_POOL_ID COGNITO_APP_CLIENT_ID COGNITO_USER_POOL_DOMAIN COGNITO_REGION; do
+            if [ -z "${!var:-}" ]; then
+              echo "::error::Missing required secret: $var"
+              exit 1
+            fi
+          done
+          printf 'DB_HOST=%s\nDB_PORT=5432\nDB_NAME=%s\nDB_USER=%s\nDB_PASS=%s\n' \
+            "${INVENTORY_DB_HOST}" "${INVENTORY_DB_NAME}" "${INVENTORY_DB_USER}" "${INVENTORY_DB_PASSWORD}" > /tmp/inventory-db.env
+          printf 'DB_HOST=%s\nDB_PORT=5432\nDB_NAME=%s\nDB_USER=%s\nDB_PASS=%s\n' \
+            "${BILLING_DB_HOST}" "${BILLING_DB_NAME}" "${BILLING_DB_USER}" "${BILLING_DB_PASSWORD}" > /tmp/billing-db.env
+          printf 'COGNITO_USER_POOL_ID=%s\nCOGNITO_APP_CLIENT_ID=%s\nCOGNITO_USER_POOL_DOMAIN=%s\nCOGNITO_REGION=%s\n' \
+            "${COGNITO_USER_POOL_ID}" "${COGNITO_APP_CLIENT_ID}" "${COGNITO_USER_POOL_DOMAIN}" "${COGNITO_REGION}" > /tmp/api-gateway-auth.env
+          kubectl -n apps create secret generic inventory-db --from-env-file=/tmp/inventory-db.env --dry-run=client -o yaml | kubectl apply -f -
+          kubectl -n apps create secret generic billing-db   --from-env-file=/tmp/billing-db.env   --dry-run=client -o yaml | kubectl apply -f -
+          kubectl -n apps create secret generic api-gateway-auth --from-env-file=/tmp/api-gateway-auth.env --dry-run=client -o yaml | kubectl apply -f -
+          rm -f /tmp/inventory-db.env /tmp/billing-db.env /tmp/api-gateway-auth.env
 
       - name: Apply manifests (inventory, billing, api-gateway)
         run: |

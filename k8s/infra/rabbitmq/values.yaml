@@ -1,0 +1,23 @@
+fullnameOverride: rabbitmq
+
+auth:
+  username: billing
+  password: ChangeMe42!
+  erlangCookie: ChangeMe42ErLangCookie123
+
+service:
+  type: ClusterIP
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+persistence:
+  enabled: false
+
+metrics:
+  enabled: true

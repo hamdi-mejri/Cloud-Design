@@ -11,7 +11,7 @@ module "vpc" {
   private_subnets = ["10.0.10.0/24", "10.0.11.0/24", "10.0.12.0/24"]
 
   enable_nat_gateway = true
-  single_nat_gateway = true 
+  single_nat_gateway = true
 
   tags = {
     Project   = "cloud-design-pfe"
